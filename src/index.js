@@ -9,7 +9,7 @@ const app = express()
 const server = http.createServer(app)
 const io = require('socket.io')(server)
 
-const server1Url = 'http://127.0.0.1:8000'
+const server1Url = 'http://localhost:8000'
 
 const redisClient = redis.createClient({
   legacyMode: true,
