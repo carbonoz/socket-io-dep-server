@@ -9,7 +9,7 @@ const app = express()
 const server = http.createServer(app)
 const io = require('socket.io')(server)
 
-const server1Url = 'http://localhost:8000'
+const server1Url = 'https://fce6-196-12-131-142.ngrok-free.app'
 
 const redisClient = redis.createClient({
   legacyMode: true,
@@ -42,7 +42,7 @@ socket.on('connect', () => {
       topic,
       message,
     }
-    const uniqueKey = `mqttData` // List key for MQTT data
+    const uniqueKey = `mqttData`
     const value = JSON.stringify(data)
     lpushAsync(uniqueKey, value)
       .then(() => {
