@@ -4,7 +4,7 @@ const socketIOClient = require('socket.io-client');
 const Promise = require('bluebird');
 const redis = Promise.promisifyAll(require('redis'));
 const { promisify } = require('util');
-const { v4: uuidv4 } = require('uuid');
+
 
 const app = express();
 const server = http.createServer(app);
