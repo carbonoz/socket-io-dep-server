@@ -9,7 +9,7 @@ const app = express()
 const server = http.createServer(app)
 const io = require('socket.io')(server)
 
-const server1Url = 'https://fce6-196-12-131-142.ngrok-free.app'
+const server1Url = 'https://ef36-105-178-32-231.ngrok-free.app'
 
 const redisClient = redis.createClient({
   legacyMode: true,
