@@ -19,7 +19,6 @@ export const saveToMongoDb = async () => {
         })
       })
     )
-    console.log('Data saved successfully!')
   } catch (error) {
     console.error('Error saving data:', error)
   }
