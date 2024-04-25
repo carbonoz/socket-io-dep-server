@@ -1,23 +1,18 @@
-const express = require('express')
-const http = require('http')
-const socketIOClient = require('socket.io-client')
-const Promise = require('bluebird')
-const redis = Promise.promisifyAll(require('redis'))
-const { promisify } = require('util')
+import express from 'express'
+import { createServer } from 'http'
+import socketIOClient from 'socket.io-client'
+import { connectDatabase, disconnectDatabase, prisma } from './config/db'
+import { redisClient } from './config/redis.db'
+import { getMeanValues, saveMeanToRedis } from './utils/redis'
+import {saveToMongoDb} from './utils/mongo'
+import { findMeanOfPowerTopicsNew } from './utils/data'
+import { scheduleJob } from 'node-schedule'
 
 const app = express()
-const server = http.createServer(app)
+const server = createServer(app)
 const io = require('socket.io')(server)
 
-const server1Url = 'https://f0d3-196-12-131-142.ngrok-free.app'
-
-const redisClient = redis.createClient({
-  legacyMode: true,
-  url: `redis://192.168.160.155`,
-})
-
-const lpushAsync = promisify(redisClient.lPush).bind(redisClient)
-const lrangeAsync = promisify(redisClient.lRange).bind(redisClient)
+const server1Url = 'http://localhost:8000'
 
 redisClient
   .connect()
@@ -35,40 +30,65 @@ const socket = socketIOClient(server1Url)
 
 socket.on('connect', () => {
   console.log('Connected to Server 1.')
-  socket.emit('message', 'Hello from Socket.IO client!')
-
-  socket.on('mqttMessage', ({ topic, message }) => {
+  socket.on('mqttMessage', ({ topic, message, userId, date }) => {
     let data = {
       topic,
       message,
+      userId,
+      date,
     }
-    const uniqueKey = `mqttData`
-    const value = JSON.stringify(data)
-    lpushAsync(uniqueKey, value)
-      .then(() => {
-        console.log('MQTT data saved to Redis List.')
+    findMeanOfPowerTopicsNew(data)
+      .then((result) => {
+        const { date: Date, userId, pv, load } = result
+        saveMeanToRedis(Date, userId, pv, load)
+          .then(() => {})
+          .catch((error) => {
+            console.error(`Error saving mean values for ${date}:`, error)
+          })
       })
-      .catch((err) => {
-        console.error('Error saving MQTT data to Redis:', err)
-      })
+      .catch((err) => console.log({ err }))
+    // const uniqueKey = `mqttData:${Date.now()}`
+    // const value = JSON.stringify(data)
+    // lpushAsync(uniqueKey, value)
+    //   .then(() => {})
+    //   .catch((err) => {
+    //     // console.error('Error saving MQTT data to Redis:', err)
+    //   })
   })
 })
 
 app.get('/', async (req, res) => {
   try {
-    const uniqueKey = `mqttData`
-    const messageList = await lrangeAsync(uniqueKey, 0, -1)
-    const results = messageList.map((message) => JSON.parse(message))
-    res.json({ results })
+    const data = await getMeanValues()
+    res.status(200).send(data)
   } catch (error) {
-    console.error(error)
     res.status(500).json({ error: 'Internal Server Error' })
   }
 })
 
+app.get('/data', async (req, res) => {
+  try {
+    // await prisma.totalEnergy.deleteMany({})
+    const data = await prisma.totalEnergy.findMany()
+    res.status(200).send(data)
+  } catch (error) {
+    res.status(500).json({ error })
+  }
+})
+const PORT = process.env.PORT || 7000
+
 const startServer = async () => {
-  server.listen(7000)
-  console.log('Express.js server listening on port 3000')
+  await connectDatabase()
+  server.listen(PORT, () => {
+    console.log(`server listening on port ${PORT}`)
+  })
 }
 
-startServer()
+scheduleJob('*/5 * * * * *', saveToMongoDb);
+
+startServer().catch(console.error)
+
+process.on('SIGINT', async () => {
+  await disconnectDatabase()
+  process.exit(0)
+})
