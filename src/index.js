@@ -84,7 +84,7 @@ const startServer = async () => {
   })
 }
 
-scheduleJob('*/5 * * * * *', saveToMongoDb);
+scheduleJob('*/2 * * * *', saveToMongoDb);
 
 startServer().catch(console.error)
 
