@@ -12,7 +12,7 @@ const app = express()
 const server = createServer(app)
 const io = require('socket.io')(server)
 
-const server1Url = 'http://localhost:8000'
+const server1Url = 'http://192.168.160.55:6789'
 
 redisClient
   .connect()
