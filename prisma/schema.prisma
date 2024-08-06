@@ -50,8 +50,8 @@ model TotalEnergy {
   id                String  @id @default(auto()) @map("_id") @db.ObjectId
   pvPower           Float?
   loadPower         Float?
-  gridPowerUsed     Float?
-  gridPowerExposed  Float?
+  gridIn            Float?
+  gridOut           Float?
   batteryCharged    Float?
   batteryDischarged Float?
   date              String  @unique

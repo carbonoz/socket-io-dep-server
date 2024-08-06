@@ -4,7 +4,7 @@ import socketIOClient from 'socket.io-client'
 import { connectDatabase, disconnectDatabase, prisma } from './config/db'
 import { redisClient } from './config/redis.db'
 import { getMeanValues, saveMeanToRedis } from './utils/redis'
-import {saveToMongoDb} from './utils/mongo'
+import { saveToMongoDb } from './utils/mongo'
 import { findMeanOfPowerTopicsNew } from './utils/data'
 import { scheduleJob } from 'node-schedule'
 
@@ -30,31 +30,34 @@ const socket = socketIOClient(server1Url)
 
 socket.on('connect', () => {
   console.log('Connected to Server 1.')
-  socket.on('mqttMessage', ({ topic, message, userId, date }) => {
-    let data = {
-      topic,
-      message,
+  socket.on(
+    'mqttMessage',
+    ({
+      pv,
+      load,
       userId,
       date,
+      gridIn,
+      gridOut,
+      batteryCharged,
+      batteryDischarged,
+    }) => {
+      saveMeanToRedis(
+        date,
+        userId,
+        pv,
+        load,
+        gridIn,
+        gridOut,
+        batteryCharged,
+        batteryDischarged
+      )
+        .then(() => {})
+        .catch((error) => {
+          console.error(`Error saving mean values for ${date}:`, error)
+        })
     }
-    findMeanOfPowerTopicsNew(data)
-      .then((result) => {
-        const { date: Date, userId, pv, load } = result
-        saveMeanToRedis(Date, userId, pv, load)
-          .then(() => {})
-          .catch((error) => {
-            console.error(`Error saving mean values for ${date}:`, error)
-          })
-      })
-      .catch((err) => console.log({ err }))
-    // const uniqueKey = `mqttData:${Date.now()}`
-    // const value = JSON.stringify(data)
-    // lpushAsync(uniqueKey, value)
-    //   .then(() => {})
-    //   .catch((err) => {
-    //     // console.error('Error saving MQTT data to Redis:', err)
-    //   })
-  })
+  )
 })
 
 app.get('/', async (req, res) => {
@@ -84,7 +87,7 @@ const startServer = async () => {
   })
 }
 
-scheduleJob('*/2 * * * *', saveToMongoDb);
+scheduleJob('*/2 * * * *', saveToMongoDb)
 
 startServer().catch(console.error)
 

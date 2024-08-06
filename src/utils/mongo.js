@@ -11,9 +11,13 @@ export const saveToMongoDb = async () => {
           userId,
           pvPowerMean: pvPower,
           loadPowerMean: loadPower,
+          gridIn,
+          gridOut,
+          batteryCharged,
+          batteryDischarged,
         } = values
         await prisma.totalEnergy.upsert({
-          where: { date,userId },
+          where: { date, userId },
           update: { pvPower, loadPower },
           create: { date, pvPower, loadPower, userId },
         })

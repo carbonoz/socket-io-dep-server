@@ -16,11 +16,17 @@ export const hscanAsync = promisify(redisClient.hScan).bind(redisClient)
 export const saveMeanToRedis = async (
   date,
   userId,
-  pvPowerMean,
-  loadPowerMean
+  pv,
+  load,
+  gridIn,
+  gridOut,
+  batteryCharged,
+  batteryDischarged
 ) => {
   try {
-    const concatenatedValues = `${pvPowerMean},${userId},${loadPowerMean}`
+    let pvPowerMean = pv
+    let loadPowerMean = load
+    const concatenatedValues = `${pvPowerMean},${userId},${loadPowerMean},${gridIn},${gridOut},${batteryCharged},${batteryDischarged}`
     await hsetAsync('mean_power_values', date, concatenatedValues)
   } catch (error) {
     throw new Error('Error saving mean values to Redis: ' + error)
@@ -33,12 +39,24 @@ export const getMeanValues = async () => {
     const meanValues = []
     for (const date of dates) {
       const concatenatedValues = await hgetAsync('mean_power_values', date)
-      const [pvPowerMean,userId, loadPowerMean] = concatenatedValues.split(',')
+      const [
+        pvPowerMean,
+        userId,
+        loadPowerMean,
+        gridIn,
+        gridOut,
+        batteryCharged,
+        batteryDischarged,
+      ] = concatenatedValues.split(',')
       meanValues.push({
         date: date,
         userId,
         pvPowerMean: parseFloat(pvPowerMean),
         loadPowerMean: parseFloat(loadPowerMean),
+        gridIn: parseFloat(gridIn),
+        gridOut: parseFloat(gridOut),
+        batteryCharged: parseFloat(batteryCharged),
+        batteryDischarged: parseFloat(batteryDischarged),
       })
     }
     return meanValues
