@@ -1,5 +1,7 @@
 import { promisify } from 'util'
 import { redisClient } from '../config/redis.db'
+import { prisma } from '../config/db'
+import { startOfDay } from 'date-fns';
 
 export const lpushAsync = promisify(redisClient.lPush).bind(redisClient)
 export const zrangeAsync = promisify(redisClient.zRangeByScore).bind(
@@ -33,6 +35,8 @@ export const saveMeanToRedis = async (
   }
 }
 
+
+
 export const getMeanValues = async () => {
   try {
     const dates = await hkeysAsync('mean_power_values')
@@ -48,6 +52,36 @@ export const getMeanValues = async () => {
         batteryCharged,
         batteryDischarged,
       ] = concatenatedValues.split(',')
+      let pvPower = pvPowerMean
+      let loadPower = loadPowerMean
+
+       const normalizedDate = startOfDay(new Date(date)).toISOString();
+
+      console.log({ concatenatedValues, normalizedDate })
+
+      await prisma.totalEnergy.upsert({
+        where: {
+          date_userId: { date:normalizedDate, userId }, 
+        },
+        update: {
+          pvPower,
+          loadPower,
+          gridIn,
+          gridOut,
+          batteryCharged,
+          batteryDischarged,
+        },
+        create: {
+          date:normalizedDate,
+          pvPower,
+          loadPower,
+          userId,
+          gridIn,
+          gridOut,
+          batteryCharged,
+          batteryDischarged,
+        },
+      })
       meanValues.push({
         date: date,
         userId,

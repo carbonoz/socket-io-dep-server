@@ -48,14 +48,16 @@ model Livedata {
 
 model TotalEnergy {
   id                String  @id @default(auto()) @map("_id") @db.ObjectId
-  pvPower           Float?
-  loadPower         Float?
-  gridIn            Float?
-  gridOut           Float?
-  batteryCharged    Float?
-  batteryDischarged Float?
-  date              String  @unique
+  pvPower           String?
+  loadPower         String?
+  gridIn            String?
+  gridOut           String?
+  batteryCharged    String?
+  batteryDischarged String?
+  date              String
   topic             String?
   userId            String  @db.ObjectId
   user              User?   @relation(fields: [userId], references: [id])
+
+  @@unique([date, userId]) // Composite unique key
 }
