@@ -57,8 +57,7 @@ export const getMeanValues = async () => {
 
        const normalizedDate = startOfDay(new Date(date)).toISOString();
 
-      console.log({ concatenatedValues, normalizedDate })
-
+  
       await prisma.totalEnergy.upsert({
         where: {
           date_userId: { date:normalizedDate, userId }, 
