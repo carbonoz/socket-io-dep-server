@@ -10,7 +10,6 @@ import { scheduleJob } from 'node-schedule'
 
 const app = express()
 const server = createServer(app)
-const io = require('socket.io')(server)
 
 const server1Url = 'http://192.168.160.55:6789'
 
@@ -27,6 +26,12 @@ redisClient.on('error', (err) => {
 })
 
 const socket = socketIOClient(server1Url)
+
+
+socket.on('connect_error', (err) => {
+  console.error('Connection Error:', err.message);
+  console.error('Error Details:', err);
+});
 
 socket.on('connect', () => {
   console.log('Connected to Server 1.')
@@ -71,8 +76,9 @@ app.get('/', async (req, res) => {
 
 app.get('/data', async (req, res) => {
   try {
-    // await prisma.totalEnergy.deleteMany({})
-    const data = await prisma.totalEnergy.findMany()
+    await prisma.totalEnergy.deleteMany({})
+    // const data = await getMeanValues()
+    // const data = await prisma.totalEnergy.findMany()
     res.status(200).send(data)
   } catch (error) {
     res.status(500).json({ error })
