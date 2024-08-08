@@ -47,15 +47,6 @@ socket.on('connect', () => {
       batteryCharged,
       batteryDischarged,
     }) => {
-
-      console.log({pv,
-      load,
-      userId,
-      date,
-      gridIn,
-      gridOut,
-      batteryCharged,
-      batteryDischarged,})
       saveMeanToRedis(
         date,
         userId,
