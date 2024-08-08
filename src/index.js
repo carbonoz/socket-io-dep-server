@@ -47,6 +47,15 @@ socket.on('connect', () => {
       batteryCharged,
       batteryDischarged,
     }) => {
+
+      console.log({pv,
+      load,
+      userId,
+      date,
+      gridIn,
+      gridOut,
+      batteryCharged,
+      batteryDischarged,})
       saveMeanToRedis(
         date,
         userId,
@@ -93,7 +102,7 @@ const startServer = async () => {
   })
 }
 
-scheduleJob('*/2 * * * *', saveToMongoDb)
+// scheduleJob('*/2 * * * *', saveToMongoDb)
 
 startServer().catch(console.error)
 
