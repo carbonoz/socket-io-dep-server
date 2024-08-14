@@ -11,7 +11,7 @@ import { scheduleJob } from 'node-schedule'
 const app = express()
 const server = createServer(app)
 
-const server1Url = 'http://192.168.160.55:6789'
+const server1Url = 'http://192.168.160.55:7100'
 
 redisClient
   .connect()
@@ -25,15 +25,20 @@ redisClient.on('error', (err) => {
   console.log('Redis Client Connection Error', err)
 })
 
-const socket = socketIOClient(server1Url)
-
+const socket = socketIOClient(server1Url, {
+  transports: ['websocket'],
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 5000,
+  timeout: 10000,
+})
 
 socket.on('connect_error', (err) => {
-  console.error('Connection Error:', err.message);
-  console.error('Error Details:', err);
-});
+  console.error('Connection Error:', err.message)
+  console.error('Error Details:', err)
+})
 
-socket.on('connect', () => {
+socket.on('connect', (so) => {
   console.log('Connected to Server 1.')
   socket.on(
     'mqttMessage',
@@ -76,10 +81,9 @@ app.get('/', async (req, res) => {
 
 app.get('/data', async (req, res) => {
   try {
-    await prisma.totalEnergy.deleteMany({})
-    // const data = await getMeanValues()
-    // const data = await prisma.totalEnergy.findMany()
-    res.status(200).send(data)
+    const result = await prisma.totalEnergy.deleteMany({})
+    console.log(`Deleted ${result.count} records from TotalEnergy.`)
+    res.status(200).send('All records deleted successfully.')
   } catch (error) {
     res.status(500).json({ error })
   }
@@ -93,7 +97,7 @@ const startServer = async () => {
   })
 }
 
-// scheduleJob('*/2 * * * *', saveToMongoDb)
+scheduleJob('*/2 * * * *', saveToMongoDb)
 
 startServer().catch(console.error)
 

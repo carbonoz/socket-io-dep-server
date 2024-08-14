@@ -3,6 +3,7 @@ import { getMeanValues } from './redis'
 
 export const saveToMongoDb = async () => {
   try {
+    console.log('arrived')
     await getMeanValues()
     // await Promise.all(
     //   data.map(async (values) => {

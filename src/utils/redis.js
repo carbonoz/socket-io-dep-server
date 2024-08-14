@@ -1,7 +1,7 @@
 import { promisify } from 'util'
 import { redisClient } from '../config/redis.db'
 import { prisma } from '../config/db'
-import { startOfDay } from 'date-fns';
+import { startOfDay } from 'date-fns'
 
 export const lpushAsync = promisify(redisClient.lPush).bind(redisClient)
 export const zrangeAsync = promisify(redisClient.zRangeByScore).bind(
@@ -35,64 +35,57 @@ export const saveMeanToRedis = async (
   }
 }
 
-
-
 export const getMeanValues = async () => {
   try {
     const dates = await hkeysAsync('mean_power_values')
-    const meanValues = []
     for (const date of dates) {
       const concatenatedValues = await hgetAsync('mean_power_values', date)
-      const [
-        pvPowerMean,
-        userId,
-        loadPowerMean,
-        gridIn,
-        gridOut,
-        batteryCharged,
-        batteryDischarged,
-      ] = concatenatedValues.split(',')
-      let pvPower = pvPowerMean
-      let loadPower = loadPowerMean
-
-       const normalizedDate = startOfDay(new Date(date)).toISOString();
-
-  
-      await prisma.totalEnergy.upsert({
-        where: {
-          date_userId: { date:normalizedDate, userId }, 
-        },
-        update: {
-          pvPower,
-          loadPower,
-          gridIn,
-          gridOut,
-          batteryCharged,
-          batteryDischarged,
-        },
-        create: {
-          date:normalizedDate,
-          pvPower,
-          loadPower,
+      if (
+        typeof concatenatedValues === 'string' &&
+        concatenatedValues.includes('[object Object]')
+      ) {
+        continue
+      }
+      if (typeof concatenatedValues === 'string') {
+        const [
+          pvPowerMean,
           userId,
+          loadPowerMean,
           gridIn,
           gridOut,
           batteryCharged,
           batteryDischarged,
-        },
-      })
-      meanValues.push({
-        date: date,
-        userId,
-        pvPowerMean: parseFloat(pvPowerMean),
-        loadPowerMean: parseFloat(loadPowerMean),
-        gridIn: parseFloat(gridIn),
-        gridOut: parseFloat(gridOut),
-        batteryCharged: parseFloat(batteryCharged),
-        batteryDischarged: parseFloat(batteryDischarged),
-      })
+        ] = concatenatedValues.split(',')
+        let pvPower = pvPowerMean
+        let loadPower = loadPowerMean
+
+        const normalizedDate = startOfDay(new Date(date)).toISOString()
+
+        await prisma.totalEnergy.upsert({
+          where: {
+            date_userId: { date: normalizedDate, userId },
+          },
+          update: {
+            pvPower,
+            loadPower,
+            gridIn,
+            gridOut,
+            batteryCharged,
+            batteryDischarged,
+          },
+          create: {
+            date: normalizedDate,
+            pvPower,
+            loadPower,
+            userId,
+            gridIn,
+            gridOut,
+            batteryCharged,
+            batteryDischarged,
+          },
+        })
+      }
     }
-    return meanValues
   } catch (error) {
     console.log('Error retrieving mean values from Redis: ' + error)
   }
