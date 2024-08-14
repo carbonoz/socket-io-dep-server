@@ -1,12 +1,11 @@
 import express from 'express'
 import { createServer } from 'http'
+import { scheduleJob } from 'node-schedule'
 import socketIOClient from 'socket.io-client'
 import { connectDatabase, disconnectDatabase, prisma } from './config/db'
 import { redisClient } from './config/redis.db'
-import { getMeanValues, saveMeanToRedis } from './utils/redis'
 import { saveToMongoDb } from './utils/mongo'
-import { findMeanOfPowerTopicsNew } from './utils/data'
-import { scheduleJob } from 'node-schedule'
+import { getMeanValues, saveMeanToRedis } from './utils/redis'
 
 const app = express()
 const server = createServer(app)
