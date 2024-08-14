@@ -5,23 +5,19 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "npx prisma generate dev &&  nodemon --exec babel-node src/index.js",
-    "start": "babel-node src/index.js"
+    "dev": "npx prisma generate dev && nodemon dist/index.js",
+    "start": "node dist/index.js",
+    "build": "esbuild src/index.js --bundle --outfile=dist/index.js --platform=node"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@babel/register": "^7.23.7",
+    "esbuild": "^0.18.11",
     "nodemon": "^3.0.2",
     "prisma": "^5.11.0"
   },
   "dependencies": {
-    "@babel/cli": "^7.24.1",
-    "@babel/core": "^7.24.3",
-    "@babel/node": "^7.23.9",
-    "@babel/polyfill": "^7.12.1",
-    "@babel/preset-env": "^7.24.3",
     "@prisma/client": "^5.11.0",
     "bluebird": "^3.7.2",
     "cors": "^2.8.5",
