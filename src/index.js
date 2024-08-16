@@ -1,16 +1,20 @@
 import express from 'express'
 import { createServer } from 'http'
+import WebSocket from 'ws'
 import { scheduleJob } from 'node-schedule'
-import socketIOClient from 'socket.io-client'
 import { connectDatabase, disconnectDatabase, prisma } from './config/db'
 import { redisClient } from './config/redis.db'
 import { saveToMongoDb } from './utils/mongo'
-import { getMeanValues, saveMeanToRedis } from './utils/redis'
+import {
+  getMeanValues,
+  saveMeanToRedis,
+  deleteDataFromRedis,
+} from './utils/redis'
 
 const app = express()
 const server = createServer(app)
 
-const server1Url = 'http://192.168.160.55:7100'
+const server1Url = 'ws://192.168.160.55:6789'
 
 redisClient
   .connect()
@@ -24,33 +28,30 @@ redisClient.on('error', (err) => {
   console.log('Redis Client Connection Error', err)
 })
 
-const socket = socketIOClient(server1Url, {
-  transports: ['websocket'],
-  reconnection: true,
-  reconnectionAttempts: 5,
-  reconnectionDelay: 5000,
-  timeout: 10000,
-})
+const ws = new WebSocket(server1Url)
 
-socket.on('connect_error', (err) => {
-  console.error('Connection Error:', err.message)
-  console.error('Error Details:', err)
-})
+ws.on('open', () => {
+  console.log('Connected to WebSocket Server 1')
 
-socket.on('connect', (so) => {
-  console.log('Connected to Server 1.')
-  socket.on(
-    'mqttMessage',
-    ({
-      pv,
-      load,
-      userId,
-      date,
-      gridIn,
-      gridOut,
-      batteryCharged,
-      batteryDischarged,
-    }) => {
+  ws.on('message', (message) => {
+    const messageString = message?.toString()
+    try {
+      const data = JSON.parse(messageString)
+      if (!data.isForServer) {
+        return
+      }
+      const {
+        pv,
+        load,
+        userId,
+        date,
+        gridIn,
+        gridOut,
+        batteryCharged,
+        batteryDischarged,
+        port,
+      } = data
+
       saveMeanToRedis(
         date,
         userId,
@@ -59,14 +60,23 @@ socket.on('connect', (so) => {
         gridIn,
         gridOut,
         batteryCharged,
-        batteryDischarged
+        batteryDischarged,
+        port
       )
-        .then(() => {})
+        .then(() => {
+        })
         .catch((error) => {
           console.error(`Error saving mean values for ${date}:`, error)
         })
+    } catch (error) {
+      console.error('Error parsing message:', error)
     }
-  )
+  })
+})
+
+ws.on('error', (err) => {
+  console.error('WebSocket Error:', err.message)
+  console.error('Error Details:', err)
 })
 
 app.get('/', async (req, res) => {
@@ -87,18 +97,24 @@ app.get('/data', async (req, res) => {
     res.status(500).json({ error })
   }
 })
+
 const PORT = process.env.PORT || 7000
 
 const startServer = async () => {
   await connectDatabase()
   server.listen(PORT, () => {
-    console.log(`server listening on port ${PORT}`)
+    console.log(`Server listening on port ${PORT}`)
   })
 }
 
-scheduleJob('*/2 * * * *', saveToMongoDb)
+// Uncomment and configure as needed
+// scheduleJob('*/2 * * * *', saveToMongoDb)
 
 startServer().catch(console.error)
+
+// scheduleJob('*/5 * * * * *', function() {
+//   console.log('Task is running every 5 seconds');
+// });
 
 process.on('SIGINT', async () => {
   await disconnectDatabase()
