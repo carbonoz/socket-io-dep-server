@@ -117,7 +117,6 @@ export const getMeanValues = async () => {
   try {
     const dates = await hkeysAsync('mean_power_values')
     if (!dates || dates.length === 0) {
-      console.log('No dates found in Redis.')
       return
     }
 
