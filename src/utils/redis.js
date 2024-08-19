@@ -94,7 +94,11 @@ export const getMeanValues = async () => {
             date: normalizedDate,
             pvPower,
             loadPower,
-            userId,
+            user: {
+              connect: {
+                id: userId,
+              },
+            },
             gridIn,
             gridOut,
             batteryCharged,
