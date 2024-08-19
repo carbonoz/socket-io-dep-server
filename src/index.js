@@ -107,14 +107,11 @@ const startServer = async () => {
   })
 }
 
-// Uncomment and configure as needed
-// scheduleJob('*/2 * * * *', saveToMongoDb)
+scheduleJob('*/2 * * * *', saveToMongoDb)
 
 startServer().catch(console.error)
 
-// scheduleJob('*/5 * * * * *', function() {
-//   console.log('Task is running every 5 seconds');
-// });
+scheduleJob('59 23 * * *', deleteDataFromRedis);
 
 process.on('SIGINT', async () => {
   await disconnectDatabase()

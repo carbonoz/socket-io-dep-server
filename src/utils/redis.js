@@ -1,7 +1,8 @@
-import { startOfDay } from 'date-fns'
+import { startOfDay, endOfDay } from 'date-fns'
 import { promisify } from 'util'
 import { prisma } from '../config/db'
 import { redisClient } from '../config/redis.db'
+import { formatInTimeZone } from 'date-fns-tz'
 
 export const lpushAsync = promisify(redisClient.lPush).bind(redisClient)
 export const zrangeAsync = promisify(redisClient.zRangeByScore).bind(
@@ -10,11 +11,23 @@ export const zrangeAsync = promisify(redisClient.zRangeByScore).bind(
 export const saddAsync = promisify(redisClient.sAdd).bind(redisClient)
 export const smembersAsync = promisify(redisClient.sMembers).bind(redisClient)
 
+const timeZone = 'Indian/Mauritius'
+
 const hgetAsync = promisify(redisClient.hGet).bind(redisClient)
 const hkeysAsync = promisify(redisClient.hKeys).bind(redisClient)
 export const hsetAsync = promisify(redisClient.hSet).bind(redisClient)
 export const hscanAsync = promisify(redisClient.hScan).bind(redisClient)
 export const hdelAsync = promisify(redisClient.hDel).bind(redisClient)
+
+export const normalizeDate = (date) => {
+  const startOfDayInTimeZone = startOfDay(new Date(date))
+  const formattedStartOfDay = formatInTimeZone(
+    startOfDayInTimeZone,
+    timeZone,
+    "yyyy-MM-dd'T'HH:mm:ssXXX"
+  )
+  return formattedStartOfDay
+}
 
 export const saveMeanToRedis = async (
   date,
@@ -57,12 +70,12 @@ export const getMeanValues = async () => {
           gridOut,
           batteryCharged,
           batteryDischarged,
-          port
+          port,
         ] = concatenatedValues.split(',')
         let pvPower = pvPowerMean
         let loadPower = loadPowerMean
 
-        const normalizedDate = startOfDay(new Date(date)).toISOString()
+        const normalizedDate = normalizeDate(date)
 
         await prisma.totalEnergy.upsert({
           where: {
@@ -75,7 +88,7 @@ export const getMeanValues = async () => {
             gridOut,
             batteryCharged,
             batteryDischarged,
-            port
+            port,
           },
           create: {
             date: normalizedDate,
@@ -86,7 +99,7 @@ export const getMeanValues = async () => {
             gridOut,
             batteryCharged,
             batteryDischarged,
-            port
+            port,
           },
         })
       }
@@ -96,12 +109,15 @@ export const getMeanValues = async () => {
   }
 }
 
-export const deleteDataFromRedis = async()=>{
-  console.log('staring')
-  const today = startOfDay(new Date()).toISOString()
+export const deleteDataFromRedis = async () => {
+  const mauritiusEndOfDay = endOfDay(new Date())
+  const formattedEndOfDay = formatInTimeZone(
+    mauritiusEndOfDay,
+    timeZone,
+    "yyyy-MM-dd'T'HH:mm:ssXXX"
+  )
   try {
-    await hdelAsync('mean_power_values', today)
-    console.log(`Data for ${today} deleted from Redis`)
+    await hdelAsync('mean_power_values', formattedEndOfDay)
   } catch (error) {
     console.log('Error deleting data from Redis: ' + error)
   }
