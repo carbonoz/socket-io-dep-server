@@ -50,26 +50,90 @@ export const saveMeanToRedis = async (
   }
 }
 
+const MAX_RETRIES = 3
+const RETRY_DELAY = 1000 
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+const upsertWithRetry = async (data, retries = 0) => {
+  const {
+    normalizedDate,
+    userId,
+    pvPowerMean,
+    loadPowerMean,
+    gridIn,
+    gridOut,
+    batteryCharged,
+    batteryDischarged,
+    port,
+  } = data
+
+  try {
+    await prisma.totalEnergy.upsert({
+      where: {
+        date_userId: { date: normalizedDate, userId },
+      },
+      update: {
+        pvPower: pvPowerMean,
+        loadPower: loadPowerMean,
+        gridIn,
+        gridOut,
+        batteryCharged,
+        batteryDischarged,
+        port,
+      },
+      create: {
+        date: normalizedDate,
+        pvPower: pvPowerMean,
+        loadPower: loadPowerMean,
+        user: {
+          connect: {
+            id: userId,
+          },
+        },
+        gridIn,
+        gridOut,
+        batteryCharged,
+        batteryDischarged,
+        port,
+      },
+    })
+  } catch (error) {
+    if (error.code === 'P2034' && retries < MAX_RETRIES) {
+      console.error(
+        `Retry ${retries + 1} for date ${normalizedDate} due to conflict:`,
+        error.message
+      )
+      await sleep(RETRY_DELAY * (retries + 1))
+      return upsertWithRetry(data, retries + 1)
+    } else {
+      console.error(`Prisma error for date ${normalizedDate}:`, error.message)
+      throw error 
+    }
+  }
+}
+
 export const getMeanValues = async () => {
   try {
-    const dates = await hkeysAsync('mean_power_values');
+    const dates = await hkeysAsync('mean_power_values')
     if (!dates || dates.length === 0) {
-      return;
+      console.log('No dates found in Redis.')
+      return
     }
 
     for (const date of dates) {
       try {
-        const concatenatedValues = await hgetAsync('mean_power_values', date);
+        const concatenatedValues = await hgetAsync('mean_power_values', date)
 
         if (!concatenatedValues) {
-          continue; 
+          continue 
         }
 
         if (
           typeof concatenatedValues === 'string' &&
           concatenatedValues.includes('[object Object]')
         ) {
-          continue; 
+          continue 
         }
 
         if (typeof concatenatedValues === 'string') {
@@ -82,54 +146,33 @@ export const getMeanValues = async () => {
             batteryCharged,
             batteryDischarged,
             port,
-          ] = concatenatedValues.split(',');
+          ] = concatenatedValues.split(',')
 
-          const normalizedDate = normalizeDate(date);
+          const normalizedDate = normalizeDate(date)
 
-          try {
-            await prisma.totalEnergy.upsert({
-              where: {
-                date_userId: { date: normalizedDate, userId },
-              },
-              update: {
-                pvPower: pvPowerMean,
-                loadPower: loadPowerMean,
-                gridIn,
-                gridOut,
-                batteryCharged,
-                batteryDischarged,
-                port,
-              },
-              create: {
-                date: normalizedDate,
-                pvPower: pvPowerMean,
-                loadPower: loadPowerMean,
-                user: {
-                  connect: {
-                    id: userId,
-                  },
-                },
-                gridIn,
-                gridOut,
-                batteryCharged,
-                batteryDischarged,
-                port,
-              },
-            });
-          } catch (error) {
-            console.error(`Prisma error for date ${normalizedDate}:`, error.message);
-          }
+          await upsertWithRetry({
+            normalizedDate,
+            userId,
+            pvPowerMean,
+            loadPowerMean,
+            gridIn,
+            gridOut,
+            batteryCharged,
+            batteryDischarged,
+            port,
+          })
         }
       } catch (error) {
-        console.error(`Error retrieving data from Redis for date ${date}:`, error.message);
+        console.error(
+          `Error retrieving data from Redis for date ${date}:`,
+          error.message
+        )
       }
     }
   } catch (error) {
-    console.error('Error retrieving dates from Redis:', error.message);
+    console.error('Error retrieving dates from Redis:', error.message)
   }
-};
-
-
+}
 
 export const deleteDataFromRedis = async () => {
   const mauritiusEndOfDay = endOfDay(new Date())
