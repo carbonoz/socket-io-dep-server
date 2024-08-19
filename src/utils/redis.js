@@ -55,7 +55,7 @@ const RETRY_DELAY = 1000
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const upsertWithRetry = async (data, retries = 0) => {
+const upsertTotalEnergy = async (data) => {
   const {
     normalizedDate,
     userId,
@@ -66,52 +66,75 @@ const upsertWithRetry = async (data, retries = 0) => {
     batteryCharged,
     batteryDischarged,
     port,
-  } = data
+  } = data;
 
   try {
-    await prisma.totalEnergy.upsert({
+    const existingRecord = await prisma.totalEnergy.findUnique({
       where: {
         date_userId: { date: normalizedDate, userId },
       },
-      update: {
-        pvPower: pvPowerMean,
-        loadPower: loadPowerMean,
-        gridIn,
-        gridOut,
-        batteryCharged,
-        batteryDischarged,
-        port,
-      },
-      create: {
-        date: normalizedDate,
-        pvPower: pvPowerMean,
-        loadPower: loadPowerMean,
-        user: {
-          connect: {
-            id: userId,
-          },
+    });
+
+    if (existingRecord) {
+      await prisma.totalEnergy.update({
+        where: {
+          date_userId: { date: normalizedDate, userId },
         },
-        gridIn,
-        gridOut,
-        batteryCharged,
-        batteryDischarged,
-        port,
-      },
-    })
-  } catch (error) {
-    if (error.code === 'P2034' && retries < MAX_RETRIES) {
-      console.error(
-        `Retry ${retries + 1} for date ${normalizedDate} due to conflict:`,
-        error.message
-      )
-      await sleep(RETRY_DELAY * (retries + 1))
-      return upsertWithRetry(data, retries + 1)
+        data: {
+          pvPower: pvPowerMean,
+          loadPower: loadPowerMean,
+          gridIn,
+          gridOut,
+          batteryCharged,
+          batteryDischarged,
+          port,
+        },
+      });
     } else {
-      console.error(`Prisma error for date ${normalizedDate}:`, error.message)
-      throw error 
+      await prisma.totalEnergy.create({
+        data: {
+          date: normalizedDate,
+          pvPower: pvPowerMean,
+          loadPower: loadPowerMean,
+          user: {
+            connect: {
+              id: userId,
+            },
+          },
+          gridIn,
+          gridOut,
+          batteryCharged,
+          batteryDischarged,
+          port,
+        },
+      });
+    }
+  } catch (error) {
+    console.error(`Prisma error for date ${normalizedDate}:`, error.message);
+    throw error; // Optionally re-throw or handle the error as needed
+  }
+};
+
+const BASE_DELAY = 1000; 
+
+const exponentialBackoff = (attempt) => BASE_DELAY * Math.pow(2, attempt);
+
+const upsertWithRetry = async (data, attempts = 0) => {
+  try {
+    await upsertTotalEnergy(data);
+  } catch (error) {
+    if (attempts < MAX_RETRIES) {
+      const delay = exponentialBackoff(attempts);
+      console.error(`Retry ${attempts + 1} after ${delay}ms for date ${data.normalizedDate}:`, error.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      await upsertWithRetry(data, attempts + 1);
+    } else {
+      console.error(`Max retries reached for date ${data.normalizedDate}:`, error.message);
+      throw error; 
     }
   }
-}
+};
+
 
 export const getMeanValues = async () => {
   try {
