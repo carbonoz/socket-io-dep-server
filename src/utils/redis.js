@@ -52,66 +52,84 @@ export const saveMeanToRedis = async (
 
 export const getMeanValues = async () => {
   try {
-    const dates = await hkeysAsync('mean_power_values')
+    const dates = await hkeysAsync('mean_power_values');
+    if (!dates || dates.length === 0) {
+      return;
+    }
+
     for (const date of dates) {
-      const concatenatedValues = await hgetAsync('mean_power_values', date)
-      if (
-        typeof concatenatedValues === 'string' &&
-        concatenatedValues.includes('[object Object]')
-      ) {
-        continue
-      }
-      if (typeof concatenatedValues === 'string') {
-        const [
-          pvPowerMean,
-          userId,
-          loadPowerMean,
-          gridIn,
-          gridOut,
-          batteryCharged,
-          batteryDischarged,
-          port,
-        ] = concatenatedValues.split(',')
-        let pvPower = pvPowerMean
-        let loadPower = loadPowerMean
+      try {
+        const concatenatedValues = await hgetAsync('mean_power_values', date);
 
-        const normalizedDate = normalizeDate(date)
+        if (!concatenatedValues) {
+          continue; 
+        }
 
-        await prisma.totalEnergy.upsert({
-          where: {
-            date_userId: { date: normalizedDate, userId },
-          },
-          update: {
-            pvPower,
-            loadPower,
+        if (
+          typeof concatenatedValues === 'string' &&
+          concatenatedValues.includes('[object Object]')
+        ) {
+          continue; 
+        }
+
+        if (typeof concatenatedValues === 'string') {
+          const [
+            pvPowerMean,
+            userId,
+            loadPowerMean,
             gridIn,
             gridOut,
             batteryCharged,
             batteryDischarged,
             port,
-          },
-          create: {
-            date: normalizedDate,
-            pvPower,
-            loadPower,
-            user: {
-              connect: {
-                id: userId,
+          ] = concatenatedValues.split(',');
+
+          const normalizedDate = normalizeDate(date);
+
+          try {
+            await prisma.totalEnergy.upsert({
+              where: {
+                date_userId: { date: normalizedDate, userId },
               },
-            },
-            gridIn,
-            gridOut,
-            batteryCharged,
-            batteryDischarged,
-            port,
-          },
-        })
+              update: {
+                pvPower: pvPowerMean,
+                loadPower: loadPowerMean,
+                gridIn,
+                gridOut,
+                batteryCharged,
+                batteryDischarged,
+                port,
+              },
+              create: {
+                date: normalizedDate,
+                pvPower: pvPowerMean,
+                loadPower: loadPowerMean,
+                user: {
+                  connect: {
+                    id: userId,
+                  },
+                },
+                gridIn,
+                gridOut,
+                batteryCharged,
+                batteryDischarged,
+                port,
+              },
+            });
+          } catch (error) {
+            console.error(`Prisma error for date ${normalizedDate}:`, error.message);
+          }
+        }
+      } catch (error) {
+        console.error(`Error retrieving data from Redis for date ${date}:`, error.message);
       }
     }
   } catch (error) {
-    console.log('Error retrieving mean values from Redis: ' + error)
+    console.error('Error retrieving dates from Redis:', error.message);
   }
-}
+};
+
+
 
 export const deleteDataFromRedis = async () => {
   const mauritiusEndOfDay = endOfDay(new Date())
