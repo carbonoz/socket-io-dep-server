@@ -1,14 +1,14 @@
 import express from 'express'
 import { createServer } from 'http'
-import WebSocket from 'ws'
 import { scheduleJob } from 'node-schedule'
+import WebSocket from 'ws'
 import { connectDatabase, disconnectDatabase, prisma } from './config/db'
 import { redisClient } from './config/redis.db'
 import { saveToMongoDb } from './utils/mongo'
 import {
+  deleteDataFromRedis,
   getMeanValues,
   saveMeanToRedis,
-  deleteDataFromRedis,
 } from './utils/redis'
 
 const app = express()
@@ -63,8 +63,7 @@ ws.on('open', () => {
         batteryDischarged,
         port
       )
-        .then(() => {
-        })
+        .then(() => {})
         .catch((error) => {
           console.error(`Error saving mean values for ${date}:`, error)
         })
@@ -111,7 +110,7 @@ scheduleJob('*/2 * * * *', saveToMongoDb)
 
 startServer().catch(console.error)
 
-scheduleJob('59 23 * * *', deleteDataFromRedis);
+scheduleJob('59 23 * * *', deleteDataFromRedis)
 
 process.on('SIGINT', async () => {
   await disconnectDatabase()
