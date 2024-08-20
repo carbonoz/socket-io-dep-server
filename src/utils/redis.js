@@ -170,6 +170,7 @@ export const getMeanValues = async () => {
             port,
           ] = concatenatedValues.split(',')
 
+
           const normalizedDate = normalizeDate(date)
 
           await upsertWithRetry({
