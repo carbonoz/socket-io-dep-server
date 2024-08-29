@@ -5,16 +5,12 @@ import WebSocket from 'ws'
 import { connectDatabase, disconnectDatabase, prisma } from './config/db'
 import { redisClient } from './config/redis.db'
 import { saveToMongoDb } from './utils/mongo'
-import {
-  deleteDataFromRedis,
-  getMeanValues,
-  saveMeanToRedis,
-} from './utils/redis'
+import { getMeanValues, saveToRedis } from './utils/redis'
 
 const app = express()
 const server = createServer(app)
 
-const server1Url = 'ws://192.168.160.55:6789'
+const server1Url = 'ws://192.168.160.160'
 
 redisClient
   .connect()
@@ -37,32 +33,9 @@ ws.on('open', () => {
     const messageString = message?.toString()
     try {
       const data = JSON.parse(messageString)
-      if (!data.isForServer) {
-        return
-      }
-      const {
-        pv,
-        load,
-        userId,
-        date,
-        gridIn,
-        gridOut,
-        batteryCharged,
-        batteryDischarged,
-        port,
-      } = data
-
-      saveMeanToRedis(
-        date,
-        userId,
-        pv,
-        load,
-        gridIn,
-        gridOut,
-        batteryCharged,
-        batteryDischarged,
-        port
-      )
+      const { topic, message, userId } = data
+      const Message = message.toString()
+      saveToRedis({topic, message:Message, userId})
         .then(() => {})
         .catch((error) => {
           console.error(`Error saving mean values for ${date}:`, error)
@@ -110,7 +83,6 @@ scheduleJob('*/2 * * * *', saveToMongoDb)
 
 startServer().catch(console.error)
 
-scheduleJob('59 23 * * *', deleteDataFromRedis)
 
 process.on('SIGINT', async () => {
   await disconnectDatabase()
