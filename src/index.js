@@ -11,6 +11,41 @@ const app = express()
 const server = createServer(app)
 
 const server1Url = 'ws://192.168.160.160'
+const reconnectDelay = 5000 // Delay in milliseconds for reconnection
+
+const connectWebSocket = () => {
+  const ws = new WebSocket(server1Url)
+
+  ws.on('open', () => {
+    console.log('Connected to WebSocket Server 1')
+
+    ws.on('message', (message) => {
+      const messageString = message?.toString()
+      try {
+        const data = JSON.parse(messageString)
+        const { topic, message, userId } = data
+        const Message = message.toString()
+        saveToRedis({ topic, message: Message, userId })
+          .then(() => {})
+          .catch((error) => {
+            console.error(`Error saving mean values for ${date}:`, error)
+          })
+      } catch (error) {
+        console.error('Error parsing message:', error)
+      }
+    })
+
+    ws.on('close', () => {
+      console.log('WebSocket connection closed, attempting to reconnect...')
+      setTimeout(connectWebSocket, reconnectDelay)
+    })
+
+    ws.on('error', (err) => {
+      console.error('WebSocket Error:', err.message)
+      console.error('Error Details:', err)
+    })
+  })
+}
 
 redisClient
   .connect()
@@ -24,32 +59,7 @@ redisClient.on('error', (err) => {
   console.log('Redis Client Connection Error', err)
 })
 
-const ws = new WebSocket(server1Url)
-
-ws.on('open', () => {
-  console.log('Connected to WebSocket Server 1')
-
-  ws.on('message', (message) => {
-    const messageString = message?.toString()
-    try {
-      const data = JSON.parse(messageString)
-      const { topic, message, userId } = data
-      const Message = message.toString()
-      saveToRedis({topic, message:Message, userId})
-        .then(() => {})
-        .catch((error) => {
-          console.error(`Error saving mean values for ${date}:`, error)
-        })
-    } catch (error) {
-      console.error('Error parsing message:', error)
-    }
-  })
-})
-
-ws.on('error', (err) => {
-  console.error('WebSocket Error:', err.message)
-  console.error('Error Details:', err)
-})
+connectWebSocket()
 
 app.get('/', async (req, res) => {
   try {
@@ -82,7 +92,6 @@ const startServer = async () => {
 scheduleJob('*/2 * * * *', saveToMongoDb)
 
 startServer().catch(console.error)
-
 
 process.on('SIGINT', async () => {
   await disconnectDatabase()
