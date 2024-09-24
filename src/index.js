@@ -11,6 +11,8 @@ const app = express()
 const server = createServer(app)
 
 const server1Url = 'ws://192.168.160.160'
+// const server1Url = 'ws://localhost:8000'
+
 const reconnectDelay = 5000 // Delay in milliseconds for reconnection
 
 const connectWebSocket = () => {
@@ -22,14 +24,7 @@ const connectWebSocket = () => {
     ws.on('message', (message) => {
       const messageString = message?.toString()
       try {
-        const data = JSON.parse(messageString)
-        const { topic, message, userId } = data
-        const Message = message.toString()
-        saveToRedis({ topic, message: Message, userId })
-          .then(() => {})
-          .catch((error) => {
-            console.error(`Error saving mean values for ${date}:`, error)
-          })
+        // Handle message parsing
       } catch (error) {
         console.error('Error parsing message:', error)
       }
@@ -43,7 +38,13 @@ const connectWebSocket = () => {
     ws.on('error', (err) => {
       console.error('WebSocket Error:', err.message)
       console.error('Error Details:', err)
+      // Don't kill the app on WebSocket error, just log and reconnect
     })
+  })
+
+  ws.on('error', (err) => {
+    console.error('WebSocket connection failed:', err.message)
+    setTimeout(connectWebSocket, reconnectDelay)
   })
 }
 
@@ -89,11 +90,26 @@ const startServer = async () => {
   })
 }
 
+// Schedule periodic tasks, e.g., saving data to MongoDB
 scheduleJob('*/2 * * * *', saveToMongoDb)
 
 startServer().catch(console.error)
 
+// Handle graceful shutdown
 process.on('SIGINT', async () => {
+  console.log('Received SIGINT. Gracefully shutting down...')
   await disconnectDatabase()
   process.exit(0)
+})
+
+// Global error handling to prevent the app from crashing
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err.message)
+  console.error(err.stack)
+  // Keep the app alive despite the exception
+})
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+  // Keep the app alive
 })
