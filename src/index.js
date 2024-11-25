@@ -5,7 +5,7 @@ import WebSocket from 'ws'
 import { connectDatabase, disconnectDatabase, prisma } from './config/db'
 import { redisClient } from './config/redis.db'
 import { saveToMongoDb } from './utils/mongo'
-import { getMeanValues, saveToRedis } from './utils/redis'
+import { getMeanValues } from './utils/redis'
 
 const app = express()
 const server = createServer(app)
