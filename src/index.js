@@ -10,7 +10,7 @@ import { getMeanValues, saveToRedis } from './utils/redis'
 const app = express()
 const server = createServer(app)
 
-const server1Url = 'ws://192.168.160.160'
+const server1Url = 'https://broker.carbonoz.com:8000'
 // const server1Url = 'ws://localhost:8000'
 
 const reconnectDelay = 5000 // Delay in milliseconds for reconnection
