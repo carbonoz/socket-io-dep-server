@@ -118,15 +118,15 @@ const upsertWithRetry = async (data, attempts = 0) => {
 
 export const getMeanValues = async () => {
   try {
-    const dates = await hkeysAsync('redis-data')
-    if (!dates || dates.length === 0) {
+    const dateUserKeys = await hkeysAsync('redis-data')
+    if (!dateUserKeys || dateUserKeys.length === 0) {
       return
     }
 
-    for (const date of dates) {
+    for (const dateUserKey of dateUserKeys) {
       try {
-        const concatenatedValues = await hgetAsync('redis-data', date)
-
+        const concatenatedValues = await hgetAsync('redis-data', dateUserKey)
+        
         if (!concatenatedValues) {
           continue
         }
@@ -149,28 +149,26 @@ export const getMeanValues = async () => {
             existingBatteryDischarged,
           ] = concatenatedValues.split(',')
 
-          const normalizedDate = date
-
           await upsertWithRetry({
-            normalizedDate,
-            userId:existingUserId,
-            pvPowerMean:existingPv,
-            loadPowerMean:existingLoad,
-            gridIn:existingGridIn,
-            gridOut:existingGridOut,
-            batteryCharged:existingBatteryCharged,
-            batteryDischarged:existingBatteryDischarged,
+            normalizedDate: dateUserKey.split('-')[0],
+            userId: existingUserId,
+            pvPowerMean: existingPv,
+            loadPowerMean: existingLoad,
+            gridIn: existingGridIn,
+            gridOut: existingGridOut,
+            batteryCharged: existingBatteryCharged,
+            batteryDischarged: existingBatteryDischarged,
           })
         }
       } catch (error) {
         console.error(
-          `Error retrieving data from Redis for date ${date}:`,
+          `Error retrieving data from Redis for key ${dateUserKey}:`,
           error.message
         )
       }
     }
   } catch (error) {
-    console.error('Error retrieving dates from Redis:', error.message)
+    console.error('Error retrieving keys from Redis:', error.message)
   }
 }
 
