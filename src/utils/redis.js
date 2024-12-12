@@ -149,8 +149,10 @@ export const getMeanValues = async () => {
             existingBatteryDischarged,
           ] = concatenatedValues.split(',')
 
+           const fullDate = dateUserKey.split('-').slice(0, 3).join('-')
+
           await upsertWithRetry({
-            normalizedDate: dateUserKey.split('-')[0],
+            normalizedDate: fullDate,
             userId: existingUserId,
             pvPowerMean: existingPv,
             loadPowerMean: existingLoad,
