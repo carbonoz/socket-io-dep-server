@@ -8,7 +8,6 @@ import { redisClient } from '../config/redis.db'
 dayjs.extend(utc)
 dayjs.extend(timezone)
 
-
 export const lpushAsync = promisify(redisClient.lPush).bind(redisClient)
 export const zrangeAsync = promisify(redisClient.zRangeByScore).bind(
   redisClient
@@ -16,17 +15,13 @@ export const zrangeAsync = promisify(redisClient.zRangeByScore).bind(
 export const saddAsync = promisify(redisClient.sAdd).bind(redisClient)
 export const smembersAsync = promisify(redisClient.sMembers).bind(redisClient)
 
-
 const hgetAsync = promisify(redisClient.hGet).bind(redisClient)
 const hkeysAsync = promisify(redisClient.hKeys).bind(redisClient)
 export const hsetAsync = promisify(redisClient.hSet).bind(redisClient)
 export const hscanAsync = promisify(redisClient.hScan).bind(redisClient)
 export const hdelAsync = promisify(redisClient.hDel).bind(redisClient)
 
-
-
 const MAX_RETRIES = 3
-
 
 const upsertTotalEnergy = async (data) => {
   const {
@@ -42,49 +37,41 @@ const upsertTotalEnergy = async (data) => {
   } = data
 
   try {
-    const existingRecord = await prisma.totalEnergy.findUnique({
+    await prisma.totalEnergy.upsert({
       where: {
         date_userId: { date: normalizedDate, userId },
       },
-    })
-
-    if (existingRecord) {
-      await prisma.totalEnergy.update({
-        where: {
-          date_userId: { date: normalizedDate, userId },
-        },
-        data: {
-          pvPower: pvPowerMean,
-          loadPower: loadPowerMean,
-          gridIn,
-          gridOut,
-          batteryCharged,
-          batteryDischarged,
-          port,
-        },
-      })
-    } else {
-      await prisma.totalEnergy.create({
-        data: {
-          date: normalizedDate,
-          pvPower: pvPowerMean,
-          loadPower: loadPowerMean,
-          user: {
-            connect: {
-              id: userId,
-            },
+      update: {
+        pvPower: pvPowerMean,
+        loadPower: loadPowerMean,
+        gridIn,
+        gridOut,
+        batteryCharged,
+        batteryDischarged,
+        port,
+      },
+      create: {
+        date: normalizedDate,
+        pvPower: pvPowerMean,
+        loadPower: loadPowerMean,
+        user: {
+          connect: {
+            id: userId,
           },
-          gridIn,
-          gridOut,
-          batteryCharged,
-          batteryDischarged,
-          port,
         },
-      })
-    }
+        gridIn,
+        gridOut,
+        batteryCharged,
+        batteryDischarged,
+        port,
+      },
+    })
   } catch (error) {
-    console.error(`Prisma error for date ${normalizedDate}:`, error.message)
-    throw error // Optionally re-throw or handle the error as needed
+    console.error(
+      `Prisma upsert error for date ${normalizedDate}:`,
+      error.message
+    )
+    throw error
   }
 }
 
@@ -126,7 +113,7 @@ export const getMeanValues = async () => {
     for (const dateUserKey of dateUserKeys) {
       try {
         const concatenatedValues = await hgetAsync('redis-data', dateUserKey)
-        
+
         if (!concatenatedValues) {
           continue
         }
@@ -149,7 +136,7 @@ export const getMeanValues = async () => {
             existingBatteryDischarged,
           ] = concatenatedValues.split(',')
 
-           const fullDate = dateUserKey.split('-').slice(0, 3).join('-')
+          const fullDate = dateUserKey.split('-').slice(0, 3).join('-')
 
           await upsertWithRetry({
             normalizedDate: fullDate,
@@ -173,5 +160,3 @@ export const getMeanValues = async () => {
     console.error('Error retrieving keys from Redis:', error.message)
   }
 }
-
-
